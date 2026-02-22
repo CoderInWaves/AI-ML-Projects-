@@ -1,0 +1,25 @@
+# Large model files (too big for GitHub)
+*.pth
+*.pkl
+
+# Large MRI dataset discs (12+ GB)
+ML Model/Dataset/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+env/
+
+# Nested git repos (Final_project has its own .git)
+Final_project/.git/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/

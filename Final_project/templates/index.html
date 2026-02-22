@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroScan AI – Dementia Risk Assessment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8' },
+            teal:  { 400:'#2dd4bf',500:'#14b8a6',600:'#0d9488' },
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    .gauge-ring { transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1); }
+    input[type=range] { -webkit-appearance:none; appearance:none; height:6px; border-radius:9999px; outline:none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#2563eb; cursor:pointer; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+    input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#2563eb; cursor:pointer; border:2px solid #fff; }
+    .drag-over { border-color:#2563eb !important; background:#eff6ff !important; }
+    .spinner { border:3px solid #e2e8f0; border-top-color:#2563eb; border-radius:50%; width:36px; height:36px; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes toastIn { from{ transform:translateX(110%); opacity:0 } to{ transform:translateX(0); opacity:1 } }
+    @keyframes toastOut { from{ opacity:1 } to{ opacity:0; transform:translateX(110%) } }
+    .toast-in  { animation:toastIn .35s ease-out forwards; }
+    .toast-out { animation:toastOut .35s ease-in  forwards; }
+    .counter-val { font-variant-numeric: tabular-nums; }
+    .tab-btn.active { background:#2563eb; color:#fff; box-shadow:0 2px 8px rgba(37,99,235,.35); }
+    .tab-btn.active svg { color:#fff !important; }
+    @keyframes slideUp { from{ opacity:0; transform:translateY(16px) } to{ opacity:1; transform:translateY(0) } }
+    .slide-up { animation:slideUp .4s ease-out; }
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background:#f1f5f9; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+
+<!-- TOP NAV -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.607L5 14.5m14.8.5l.4 2M5 14.5l-.4 2M7 19.5h10"/></svg>
+      </div>
+      <div>
+        <h1 class="text-base font-bold text-slate-900 leading-none">NeuroScan AI</h1>
+        <p class="text-xs text-slate-500 mt-0.5">Dementia Risk Assessment</p>
+      </div>
+    </div>
+    <span class="hidden sm:inline-flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full font-medium">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+      Research use only – Not a medical diagnosis
+    </span>
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+  <!-- LEFT PANEL -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="bg-gradient-to-r from-blue-600 to-teal-500 px-6 py-5">
+      <h2 class="text-white text-lg font-semibold">Patient Information</h2>
+      <p class="text-blue-100 text-sm mt-0.5">Enter clinical and imaging data for risk assessment</p>
+    </div>
+
+    <div class="p-6">
+      <!-- Patient name -->
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Patient Name <span class="text-red-400">*</span></label>
+        <div class="relative">
+          <input id="patient_name" type="text" placeholder="Full name" autocomplete="off"
+            class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"/>
+          <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-3 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+        </div>
+        <p id="err_name" class="text-xs text-red-500 mt-1 hidden">Patient name is required.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-5 p-1 bg-slate-100 rounded-xl">
+        <button type="button" id="tab-clinical" onclick="switchTab('clinical')"
+          class="tab-btn active flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-600">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+          Clinical Data
+        </button>
+        <button type="button" id="tab-mri" onclick="switchTab('mri')"
+          class="tab-btn flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-600">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+          MRI Upload
+          <span id="mri-badge" class="hidden bg-blue-600 text-white text-xs rounded-full px-1.5 leading-5 min-w-5 text-center">0</span>
+        </button>
+      </div>
+
+      <!-- Clinical Data Tab -->
+      <div id="pane-clinical" class="space-y-4">
+
+        <!-- Age -->
+        <div>
+          <div class="flex justify-between mb-1.5">
+            <label class="text-sm font-medium text-slate-700">Age <span class="text-red-400">*</span></label>
+            <span id="age-val" class="text-xs font-bold text-blue-600">60</span>
+          </div>
+          <input id="age" type="range" min="18" max="120" value="60" oninput="syncSlider('age')" class="w-full bg-blue-100"/>
+          <div class="flex justify-between text-xs text-slate-400 mt-0.5"><span>18</span><span>120</span></div>
+        </div>
+
+        <!-- Education -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Education Level <span class="text-red-400">*</span></label>
+          <select id="educ" class="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white">
+            <option value="">-- Select --</option>
+            <option value="1">1 - Less than high school</option>
+            <option value="2">2 - High school graduate</option>
+            <option value="3">3 - Some college</option>
+            <option value="4">4 - College graduate</option>
+            <option value="5">5 - Beyond college</option>
+          </select>
+          <p id="err_educ" class="text-xs text-red-500 mt-1 hidden">Education level is required.</p>
+        </div>
+
+        <!-- SES -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Socioeconomic Status <span class="text-red-400">*</span></label>
+          <select id="ses" class="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white">
+            <option value="">-- Select --</option>
+            <option value="1">1 - Highest</option>
+            <option value="2">2 - High</option>
+            <option value="3">3 - Middle</option>
+            <option value="4">4 - Low</option>
+            <option value="5">5 - Lowest</option>
+          </select>
+          <p id="err_ses" class="text-xs text-red-500 mt-1 hidden">SES is required.</p>
+        </div>
+
+        <!-- MMSE -->
+        <div>
+          <div class="flex justify-between mb-1.5">
+            <label class="text-sm font-medium text-slate-700">MMSE Score <span class="text-red-400">*</span>
+              <span class="ml-1 text-xs text-slate-400 font-normal">(0=Impaired, 30=Normal)</span>
+            </label>
+            <span id="mmse-val" class="text-xs font-bold text-blue-600">25</span>
+          </div>
+          <input id="mmse" type="range" min="0" max="30" value="25" oninput="syncSlider('mmse')" class="w-full bg-blue-100"/>
+          <div class="flex justify-between text-xs text-slate-400 mt-0.5"><span>0</span><span>30</span></div>
+        </div>
+
+        <!-- eTIV -->
+        <div>
+          <div class="flex justify-between mb-1.5">
+            <label class="text-sm font-medium text-slate-700">eTIV (mm³) <span class="text-red-400">*</span>
+              <span class="ml-1 text-xs text-slate-400 font-normal">(Est. Total Intracranial Vol.)</span>
+            </label>
+            <span id="etiv-val" class="text-xs font-bold text-blue-600">1450</span>
+          </div>
+          <input id="etiv" type="range" min="1000" max="2000" value="1450" step="10" oninput="syncSlider('etiv')" class="w-full bg-blue-100"/>
+          <div class="flex justify-between text-xs text-slate-400 mt-0.5"><span>1000</span><span>2000</span></div>
+        </div>
+
+        <!-- nWBV -->
+        <div>
+          <div class="flex justify-between mb-1.5">
+            <label class="text-sm font-medium text-slate-700">nWBV <span class="text-red-400">*</span>
+              <span class="ml-1 text-xs text-slate-400 font-normal">(Normalized Whole Brain Vol.)</span>
+            </label>
+            <span id="nwbv-val" class="text-xs font-bold text-blue-600">0.720</span>
+          </div>
+          <input id="nwbv" type="range" min="0.60" max="0.90" value="0.72" step="0.001" oninput="syncSlider('nwbv')" class="w-full bg-blue-100"/>
+          <div class="flex justify-between text-xs text-slate-400 mt-0.5"><span>0.60</span><span>0.90</span></div>
+        </div>
+
+        <!-- ASF -->
+        <div>
+          <div class="flex justify-between mb-1.5">
+            <label class="text-sm font-medium text-slate-700">ASF <span class="text-red-400">*</span>
+              <span class="ml-1 text-xs text-slate-400 font-normal">(Atlas Scaling Factor)</span>
+            </label>
+            <span id="asf-val" class="text-xs font-bold text-blue-600">1.200</span>
+          </div>
+          <input id="asf" type="range" min="0.80" max="1.60" value="1.20" step="0.001" oninput="syncSlider('asf')" class="w-full bg-blue-100"/>
+          <div class="flex justify-between text-xs text-slate-400 mt-0.5"><span>0.80</span><span>1.60</span></div>
+        </div>
+      </div>
+
+      <!-- MRI Upload Tab -->
+      <div id="pane-mri" class="hidden">
+        <div id="drop-zone" onclick="document.getElementById('mri_input').click()"
+          class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group">
+          <div class="flex flex-col items-center gap-3">
+            <div class="w-14 h-14 bg-blue-50 group-hover:bg-blue-100 rounded-2xl flex items-center justify-center transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-700">Drop MRI images here</p>
+              <p class="text-xs text-slate-500 mt-1">or <span class="text-blue-600 font-medium underline">browse files</span></p>
+            </div>
+            <p class="text-xs text-slate-400">PNG, JPG, JPEG – multiple files supported</p>
+          </div>
+        </div>
+        <input id="mri_input" type="file" accept="image/*" multiple class="hidden" onchange="handleFiles(this.files)"/>
+        <p id="err_mri" class="text-xs text-red-500 mt-2 hidden">At least one MRI image is required.</p>
+        <div id="preview-grid" class="grid grid-cols-3 gap-2 mt-4 hidden"></div>
+        <div id="file-count-bar" class="hidden mt-3 flex items-center justify-between">
+          <span id="file-count-text" class="text-sm text-slate-600 font-medium"></span>
+          <button type="button" onclick="clearFiles()" class="text-xs text-red-500 hover:text-red-700 font-medium transition">Clear all</button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="mt-6">
+        <button id="submit-btn" type="button" onclick="submitForm()" disabled
+          class="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-blue-600 text-white font-semibold text-sm shadow-md hover:bg-blue-700 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.607L5 14.5m14.8.5l.4 2M5 14.5l-.4 2M7 19.5h10"/></svg>
+          Run AI Assessment
+        </button>
+        <p class="text-xs text-slate-400 text-center mt-2">Both clinical data and MRI are required</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL – RESULTS -->
+  <div id="results-panel" class="space-y-4">
+
+    <!-- Empty state -->
+    <div id="empty-state" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 flex flex-col items-center text-center">
+      <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z"/></svg>
+      </div>
+      <h3 class="font-semibold text-slate-500">Results Dashboard</h3>
+      <p class="text-sm text-slate-400 mt-1.5 max-w-xs">Complete the form on the left and click "Run AI Assessment" to see the analysis.</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading-state" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-12 flex flex-col items-center">
+      <div class="spinner mb-5"></div>
+      <p class="font-semibold text-slate-600 text-sm">Analyzing patient data...</p>
+      <p class="text-xs text-slate-400 mt-1.5">Running RandomForest and DenseNet-121 models</p>
+    </div>
+
+    <!-- Results content -->
+    <div id="results-content" class="hidden space-y-4 slide-up">
+
+      <!-- Patient info card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 px-5 py-4 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Patient</p>
+          <p id="res-name" class="text-base font-bold text-slate-900 mt-0.5"></p>
+          <p id="res-meta" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Date</p>
+          <p id="res-date" class="text-xs text-slate-700 font-medium mt-0.5"></p>
+        </div>
+      </div>
+
+      <!-- Warning banner -->
+      <div id="warning-banner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3.5 flex gap-3 items-start">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        <div>
+          <p class="text-sm font-semibold text-amber-800">Model Disagreement Detected</p>
+          <p id="warning-text" class="text-xs text-amber-700 mt-0.5"></p>
+        </div>
+      </div>
+
+      <!-- Risk gauge -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div class="flex flex-col sm:flex-row items-center gap-5">
+          <div class="relative shrink-0" style="width:140px;height:140px;">
+            <svg viewBox="0 0 140 140" class="w-full h-full -rotate-90">
+              <circle cx="70" cy="70" r="56" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+              <circle id="gauge-ring" cx="70" cy="70" r="56" fill="none" stroke="#2563eb" stroke-width="12"
+                stroke-linecap="round" stroke-dasharray="351.858" stroke-dashoffset="351.858"
+                class="gauge-ring"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="gauge-pct" class="text-2xl font-extrabold text-slate-800 counter-val">0%</span>
+              <span class="text-xs font-semibold mt-0.5 text-slate-500">RISK</span>
+            </div>
+          </div>
+          <div class="flex-1 text-center sm:text-left">
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Ensemble Verdict</p>
+            <p id="final-class" class="text-2xl font-extrabold mt-1"></p>
+            <div id="risk-badge" class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-bold"></div>
+            <p class="text-xs text-slate-400 mt-2">Weighted: 60% MRI + 40% Clinical Data</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Three model cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <!-- RandomForest -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-700">RandomForest</p>
+              <p class="text-xs text-slate-400">Clinical Data</p>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between items-end mb-1">
+              <span class="text-xs text-slate-500">Dementia prob.</span>
+              <span id="tab-pct" class="text-sm font-extrabold text-violet-600 counter-val">-</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2"><div id="tab-bar" class="h-2 rounded-full bg-violet-500 transition-all duration-1000" style="width:0%"></div></div>
+          </div>
+          <p id="tab-class-badge" class="text-xs font-semibold text-center py-1 rounded-lg mt-1"></p>
+        </div>
+
+        <!-- DenseNet-121 -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-700">DenseNet-121</p>
+              <p class="text-xs text-slate-400">MRI Imaging</p>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between items-end mb-1">
+              <span class="text-xs text-slate-500">Dementia prob.</span>
+              <span id="mri-pct" class="text-sm font-extrabold text-teal-600 counter-val">-</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2"><div id="mri-bar" class="h-2 rounded-full bg-teal-500 transition-all duration-1000" style="width:0%"></div></div>
+          </div>
+          <p id="mri-class-badge" class="text-xs font-semibold text-center py-1 rounded-lg mt-1"></p>
+        </div>
+
+        <!-- Ensemble -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-700">Ensemble</p>
+              <p class="text-xs text-slate-400">Combined</p>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between items-end mb-1">
+              <span class="text-xs text-slate-500">Dementia prob.</span>
+              <span id="ens-pct" class="text-sm font-extrabold text-blue-600 counter-val">-</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2"><div id="ens-bar" class="h-2 rounded-full bg-blue-500 transition-all duration-1000" style="width:0%"></div></div>
+          </div>
+          <p id="ens-class-badge" class="text-xs font-semibold text-center py-1 rounded-lg mt-1"></p>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <button onclick="downloadReport()" class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border-2 border-blue-200 text-blue-700 font-semibold text-sm hover:bg-blue-50 hover:border-blue-400 transition-all duration-150 bg-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        Download Report
+      </button>
+
+      <!-- Disclaimer -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-500 text-center">
+        <strong>Disclaimer:</strong> For research and educational use only. Not a substitute for professional medical diagnosis.
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- TOAST -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+<script>
+var mriFiles = [];
+var lastResult = null;
+
+function syncSlider(id) {
+  var el = document.getElementById(id);
+  var disp = document.getElementById(id + '-val');
+  var v = parseFloat(el.value);
+  if (id === 'nwbv' || id === 'asf') { disp.textContent = v.toFixed(3); }
+  else { disp.textContent = v; }
+}
+
+function switchTab(tab) {
+  document.getElementById('pane-clinical').classList.toggle('hidden', tab !== 'clinical');
+  document.getElementById('pane-mri').classList.toggle('hidden', tab !== 'mri');
+  document.getElementById('tab-clinical').classList.toggle('active', tab === 'clinical');
+  document.getElementById('tab-mri').classList.toggle('active', tab === 'mri');
+}
+
+function handleFiles(newFiles) {
+  for (var i = 0; i < newFiles.length; i++) {
+    var f = newFiles[i];
+    var dup = false;
+    for (var j = 0; j < mriFiles.length; j++) {
+      if (mriFiles[j].name === f.name && mriFiles[j].size === f.size) { dup = true; break; }
+    }
+    if (!dup) mriFiles.push(f);
+  }
+  renderPreviews();
+  validateForm();
+}
+
+function renderPreviews() {
+  var grid = document.getElementById('preview-grid');
+  var bar = document.getElementById('file-count-bar');
+  var badge = document.getElementById('mri-badge');
+  grid.innerHTML = '';
+  if (mriFiles.length === 0) {
+    grid.classList.add('hidden');
+    bar.classList.add('hidden');
+    badge.classList.add('hidden');
+    return;
+  }
+  grid.classList.remove('hidden');
+  bar.classList.remove('hidden');
+  badge.classList.remove('hidden');
+  badge.textContent = mriFiles.length;
+  document.getElementById('file-count-text').textContent = mriFiles.length + ' MRI image' + (mriFiles.length > 1 ? 's' : '') + ' selected';
+  document.getElementById('err_mri').classList.add('hidden');
+  for (var i = 0; i < mriFiles.length; i++) {
+    (function(idx, file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var div = document.createElement('div');
+        div.className = 'relative group rounded-xl overflow-hidden bg-slate-100';
+        div.style.aspectRatio = '1';
+        var shortName = file.name.length > 12 ? file.name.slice(0, 10) + '...' : file.name;
+        div.innerHTML = '<img src="' + e.target.result + '" class="w-full h-full object-cover"/>' +
+          '<div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">' +
+          '<button onclick="removeFile(' + idx + ')" class="text-white text-xs font-medium bg-red-600 px-2 py-0.5 rounded-full">Remove</button></div>' +
+          '<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent bg-opacity-70 px-1.5 py-1">' +
+          '<p class="text-white text-xs truncate">' + shortName + '</p></div>';
+        grid.appendChild(div);
+      };
+      reader.readAsDataURL(file);
+    })(i, mriFiles[i]);
+  }
+}
+
+function removeFile(i) {
+  mriFiles.splice(i, 1);
+  renderPreviews();
+  validateForm();
+}
+
+function clearFiles() {
+  mriFiles = [];
+  renderPreviews();
+  validateForm();
+}
+
+var dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragenter', function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', function(e) { e.preventDefault(); dz.classList.remove('drag-over'); });
+dz.addEventListener('drop', function(e) { e.preventDefault(); dz.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+
+function validateForm() {
+  var name = document.getElementById('patient_name').value.trim();
+  var educ = document.getElementById('educ').value;
+  var ses = document.getElementById('ses').value;
+  var valid = name && educ && ses && mriFiles.length > 0;
+  document.getElementById('submit-btn').disabled = !valid;
+  return !!valid;
+}
+
+document.getElementById('patient_name').addEventListener('input', validateForm);
+document.getElementById('educ').addEventListener('change', validateForm);
+document.getElementById('ses').addEventListener('change', validateForm);
+
+async function submitForm() {
+  var name = document.getElementById('patient_name').value.trim();
+  var educ = document.getElementById('educ').value;
+  var ses = document.getElementById('ses').value;
+  document.getElementById('err_name').classList.toggle('hidden', !!name);
+  document.getElementById('err_educ').classList.toggle('hidden', !!educ);
+  document.getElementById('err_ses').classList.toggle('hidden', !!ses);
+  document.getElementById('err_mri').classList.toggle('hidden', mriFiles.length > 0);
+  if (!validateForm()) { showToast('Please fill in all required fields.', 'error'); return; }
+
+  showLoading(true);
+  var fd = new FormData();
+  fd.append('patient_name', name);
+  fd.append('age', document.getElementById('age').value);
+  fd.append('educ', educ);
+  fd.append('ses', ses);
+  fd.append('mmse', document.getElementById('mmse').value);
+  fd.append('etiv', document.getElementById('etiv').value);
+  fd.append('nwbv', document.getElementById('nwbv').value);
+  fd.append('asf', document.getElementById('asf').value);
+  for (var i = 0; i < mriFiles.length; i++) { fd.append('mri_files', mriFiles[i]); }
+
+  try {
+    var resp = await fetch('/predict', { method: 'POST', body: fd });
+    var data = await resp.json();
+    showLoading(false);
+    if (data.success) {
+      lastResult = data;
+      renderResults(data);
+      showToast('Assessment complete!', 'success');
+    } else {
+      showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+    }
+  } catch(e) {
+    showLoading(false);
+    showToast('Network error: ' + e.message, 'error');
+  }
+}
+
+function renderResults(d) {
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('results-content').classList.remove('hidden');
+
+  document.getElementById('res-name').textContent = d.patient_name;
+  document.getElementById('res-meta').textContent = 'Age: ' + d.patient_age + '  |  ' + d.mri_count + ' MRI scan' + (d.mri_count > 1 ? 's' : '');
+  document.getElementById('res-date').textContent = d.timestamp;
+
+  var wb = document.getElementById('warning-banner');
+  if (d.warning) {
+    wb.classList.remove('hidden');
+    document.getElementById('warning-text').textContent = d.warning;
+  } else {
+    wb.classList.add('hidden');
+  }
+
+  // Normalise response: support both new flat fields and old nested results object
+  var tabularProb = (d.tabular_prob != null) ? d.tabular_prob
+                  : (d.results && d.results.tabular) ? d.results.tabular.prob_dementia : 0;
+  var mriProb     = (d.mri_prob != null)     ? d.mri_prob
+                  : (d.results && d.results.mri)     ? d.results.mri.prob_dementia     : 0;
+  var finalProb   = (d.final_prob != null)   ? d.final_prob
+                  : (d.results && d.results.ensemble) ? d.results.ensemble.prob_dementia : 0;
+  var tabularClass = d.tabular_class || (d.results && d.results.tabular ? d.results.tabular.label : '');
+  var mriClass     = d.mri_class     || (d.results && d.results.mri     ? d.results.mri.label     : '');
+  var finalClass   = d.final_class   || d.final_prediction || (d.results && d.results.ensemble ? d.results.ensemble.label : '');
+
+  var circumference = 351.858;
+  var pct = finalProb;
+  var offset = circumference - (pct / 100) * circumference;
+  var ring = document.getElementById('gauge-ring');
+  var riskColor = pct >= 60 ? '#ef4444' : (pct >= 35 ? '#f59e0b' : '#22c55e');
+  ring.style.stroke = riskColor;
+  setTimeout(function() { ring.style.strokeDashoffset = offset; }, 50);
+  animateCounter('gauge-pct', 0, pct, '%', 1000);
+
+  var fcEl = document.getElementById('final-class');
+  fcEl.textContent = finalClass;
+  fcEl.className = 'text-2xl font-extrabold mt-1 ' + classTxt(finalClass);
+
+  var rb = document.getElementById('risk-badge');
+  var riskMap = {
+    LOW:    { bg:'bg-green-100', text:'text-green-700', dot:'bg-green-500',  label:'LOW RISK' },
+    MEDIUM: { bg:'bg-amber-100', text:'text-amber-700', dot:'bg-amber-500',  label:'MEDIUM RISK' },
+    HIGH:   { bg:'bg-red-100',   text:'text-red-700',   dot:'bg-red-500',    label:'HIGH RISK' }
+  };
+  var r = riskMap[d.risk_level] || riskMap['MEDIUM'];
+  rb.className = 'inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-bold ' + r.bg + ' ' + r.text;
+  rb.innerHTML = '<span class="w-2 h-2 rounded-full ' + r.dot + '"></span>' + r.label;
+
+  setCard('tab', tabularProb, tabularClass, 'bg-violet-100 text-violet-700', 'bg-violet-500');
+  setCard('mri', mriProb,     mriClass,     'bg-teal-100 text-teal-700',     'bg-teal-500');
+  setCard('ens', finalProb,   finalClass,    classBadge(finalClass),          classBar(finalClass));
+}
+
+function setCard(prefix, prob, cls, badgeCls, barCls) {
+  animateCounter(prefix + '-pct', 0, prob, '%', 900);
+  var bar = document.getElementById(prefix + '-bar');
+  bar.className = 'h-2 rounded-full transition-all duration-1000 ' + barCls;
+  setTimeout(function() { bar.style.width = prob + '%'; }, 50);
+  var badge = document.getElementById(prefix + '-class-badge');
+  badge.className = 'text-xs font-semibold text-center py-1 rounded-lg ' + badgeCls;
+  badge.textContent = cls;
+}
+
+function classTxt(c)   { return c === 'Dementia' ? 'text-red-600' : 'text-green-600'; }
+function classBadge(c) { return c === 'Dementia' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'; }
+function classBar(c)   { return c === 'Dementia' ? 'bg-red-500' : 'bg-green-500'; }
+
+function animateCounter(id, from, to, suffix, duration) {
+  var el = document.getElementById(id);
+  var start = performance.now();
+  function step(now) {
+    var p = Math.min((now - start) / duration, 1);
+    var ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = (from + (to - from) * ease).toFixed(1) + suffix;
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function showLoading(show) {
+  document.getElementById('loading-state').classList.toggle('hidden', !show);
+  if (show) {
+    document.getElementById('empty-state').classList.add('hidden');
+    document.getElementById('results-content').classList.add('hidden');
+  }
+}
+
+function showToast(msg, type) {
+  type = type || 'info';
+  var container = document.getElementById('toast-container');
+  var colors = { success:'bg-green-600', error:'bg-red-600', info:'bg-blue-600' };
+  var toast = document.createElement('div');
+  toast.className = 'pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl text-white text-sm font-medium shadow-lg max-w-xs toast-in ' + (colors[type] || colors.info);
+  var icon = type === 'success'
+    ? '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+    : '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>';
+  toast.innerHTML = icon + '<span>' + msg + '</span>';
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.classList.replace('toast-in', 'toast-out');
+    setTimeout(function() { toast.remove(); }, 400);
+  }, 3500);
+}
+
+function downloadReport() {
+  if (!lastResult) return;
+  var d = lastResult;
+
+  // Resolve field names for both old and new response shapes
+  var tabProb = (d.tabular_prob != null) ? d.tabular_prob : (d.results && d.results.tabular  ? d.results.tabular.prob_dementia  : 0);
+  var mriProb = (d.mri_prob     != null) ? d.mri_prob     : (d.results && d.results.mri      ? d.results.mri.prob_dementia      : 0);
+  var ensProb = (d.final_prob   != null) ? d.final_prob   : (d.results && d.results.ensemble ? d.results.ensemble.prob_dementia : 0);
+  var tabCls  = d.tabular_class  || (d.results && d.results.tabular  ? d.results.tabular.label  : '-');
+  var mriCls  = d.mri_class      || (d.results && d.results.mri      ? d.results.mri.label      : '-');
+  var ensCls  = d.final_class    || d.final_prediction || (d.results && d.results.ensemble ? d.results.ensemble.label : '-');
+  var ts      = d.timestamp || new Date().toLocaleString();
+  var fname   = 'NeuroScanAI_' + (d.patient_name || 'Report').replace(/\s+/g,'_') + '_' + ts.replace(/[:\/ ]/g,'-') + '.pdf';
+
+  var { jsPDF } = window.jspdf;
+  var doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  var W = doc.internal.pageSize.getWidth();
+  var margin = 18;
+  var y = 0;
+
+  // ── Header banner ──────────────────────────────────────────────
+  doc.setFillColor(37, 99, 235);           // blue-600
+  doc.rect(0, 0, W, 38, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('NeuroScan AI', margin, 16);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Dementia Risk Assessment Report', margin, 24);
+  doc.text('Generated: ' + ts, margin, 31);
+  y = 48;
+
+  // ── Patient info block ─────────────────────────────────────────
+  doc.setFillColor(241, 245, 249);         // slate-100
+  doc.roundedRect(margin, y, W - margin*2, 28, 3, 3, 'F');
+  doc.setTextColor(30, 41, 59);            // slate-800
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Patient Information', margin + 4, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Name:',  margin + 4,  y + 16);  doc.setFont('helvetica','bold'); doc.text(String(d.patient_name || '-'), margin + 22, y + 16);
+  doc.setFont('helvetica','normal');
+  doc.text('Age:',   margin + 4,  y + 22);  doc.setFont('helvetica','bold'); doc.text(String(d.patient_age  || '-'), margin + 22, y + 22);
+  doc.setFont('helvetica','normal');
+  doc.text('MRI Scans:', W/2,     y + 16);  doc.setFont('helvetica','bold'); doc.text(String(d.mri_count   || '-'), W/2 + 20, y + 16);
+  doc.setFont('helvetica','normal');
+  doc.text('Risk Level:', W/2,    y + 22);
+  var rl = d.risk_level || 'UNKNOWN';
+  var rlColor = rl === 'HIGH' ? [239,68,68] : rl === 'MEDIUM' ? [245,158,11] : [34,197,94];
+  doc.setFont('helvetica','bold'); doc.setTextColor(rlColor[0], rlColor[1], rlColor[2]);
+  doc.text(rl, W/2 + 22, y + 22);
+  doc.setTextColor(30, 41, 59);
+  y += 36;
+
+  // ── Risk gauge bar ─────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+  doc.text('Ensemble Risk Score', margin, y);
+  y += 5;
+  // Track
+  doc.setFillColor(226, 232, 240);
+  doc.roundedRect(margin, y, W - margin*2, 8, 4, 4, 'F');
+  // Fill
+  var fillW = Math.max(4, ((ensProb / 100) * (W - margin*2)));
+  doc.setFillColor(rlColor[0], rlColor[1], rlColor[2]);
+  doc.roundedRect(margin, y, fillW, 8, 4, 4, 'F');
+  // Label
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+  if (fillW > 14) doc.text(ensProb.toFixed(1)+'%', margin + fillW - 12, y + 5.5);
+  doc.setTextColor(30, 41, 59);
+  y += 14;
+
+  // ── Section title helper ────────────────────────────────────────
+  function sectionTitle(label) {
+    doc.setFillColor(37, 99, 235);
+    doc.rect(margin, y, 3, 6, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30,41,59);
+    doc.text(label, margin + 6, y + 5);
+    y += 10;
+  }
+
+  // ── Model row helper ────────────────────────────────────────────
+  function modelRow(label, sublabel, cls, prob, bgR, bgG, bgB) {
+    doc.setFillColor(bgR, bgG, bgB);
+    doc.roundedRect(margin, y, W - margin*2, 22, 3, 3, 'F');
+    // Model name
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(30,41,59);
+    doc.text(label, margin+4, y+8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(100,116,139);
+    doc.text(sublabel, margin+4, y+14);
+    // Class badge
+    var isDem = (cls === 'Dementia');
+    doc.setFillColor(isDem ? 254 : 220, isDem ? 226 : 252, isDem ? 226 : 231);
+    doc.roundedRect(W - margin - 44, y+4, 44, 8, 2, 2, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.setTextColor(isDem ? 185 : 21, isDem ? 28 : 128, isDem ? 28 : 61);
+    doc.text(cls, W - margin - 22, y+9.5, { align:'center' });
+    // Probability bar
+    doc.setFillColor(226,232,240);
+    doc.roundedRect(margin+4, y+16, W-margin*2-52, 3, 1.5, 1.5, 'F');
+    var bw = Math.max(2, (prob/100)*(W-margin*2-52));
+    doc.setFillColor(isDem ? 239 : 34, isDem ? 68 : 197, isDem ? 68 : 94);
+    doc.roundedRect(margin+4, y+16, bw, 3, 1.5, 1.5, 'F');
+    // Prob text
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(30,41,59);
+    doc.text(prob.toFixed(1)+'%', W-margin-48, y+18.5);
+    doc.setTextColor(30,41,59);
+    y += 26;
+  }
+
+  sectionTitle('Model Results');
+  modelRow('RandomForest Classifier', 'Clinical Data Analysis', tabCls, tabProb, 245, 243, 255);
+  modelRow('DenseNet-121',            'MRI Imaging Analysis',   mriCls, mriProb, 240, 253, 250);
+  modelRow('Ensemble (60% MRI + 40% Clinical)', 'Combined Decision', ensCls, ensProb, 239, 246, 255);
+  y += 2;
+
+  // ── Warning box ────────────────────────────────────────────────
+  if (d.warning) {
+    doc.setFillColor(255, 251, 235);        // amber-50
+    doc.setDrawColor(251, 191, 36);         // amber-400
+    doc.roundedRect(margin, y, W-margin*2, 18, 3, 3, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(146,64,14);
+    doc.text('Model Disagreement Warning', margin+4, y+7);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(180,83,9);
+    var warnLines = doc.splitTextToSize(d.warning, W-margin*2-8);
+    doc.text(warnLines, margin+4, y+13);
+    y += 22;
+  }
+
+  // ── Disclaimer footer ──────────────────────────────────────────
+  var pageH = doc.internal.pageSize.getHeight();
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, pageH-18, W, 18, 'F');
+  doc.setDrawColor(226,232,240);
+  doc.line(0, pageH-18, W, pageH-18);
+  doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(100,116,139);
+  doc.text('Disclaimer: For research and educational use only. Not a substitute for professional medical diagnosis.', W/2, pageH-10, { align:'center' });
+  doc.text('NeuroScan AI  |  Dementia Risk Assessment Tool', W/2, pageH-5, { align:'center' });
+
+  doc.save(fname);
+}
+</script>
+</body>
+</html>
