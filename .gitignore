@@ -1,6 +1,4 @@
-# Large model files (too big for GitHub)
-*.pth
-*.pkl
+# Model files are included (both under 100MB - safe for GitHub)
 
 # Large MRI dataset discs (12+ GB)
 ML Model/Dataset/
